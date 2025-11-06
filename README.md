@@ -7,7 +7,7 @@ Este proyecto contiene las tres visualizaciones desarrolladas por **Eloísa** pa
 1. **Cartograma (Cartogram)**  
    Representa valores geográficos distorsionando las áreas según una variable cuantitativa.  
    [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/cartograma.html)
-   [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/cartograma_moderno_final.html.html)
+   [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/cartograma_moderno_final.html)
 
 3. **Box Plot (Diagrama de Caja y Bigotes)**  
    Muestra la distribución estadística y los valores atípicos de los datos de felicidad.  
