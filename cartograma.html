@@ -32,7 +32,6 @@
   <h1>Cartograma aproximado de refugiados (países de asilo)</h1>
   <p style="max-width:760px; text-align:center; margin:0 0 12px 0;">
     Los países se deforman proporcionalmente al número de refugiados que acogen. 
-    La escala de color usa <strong>YlGnBu</strong> y la leyenda es logarítmica para mejorar contraste.
   </p>
 
   <div id="chart">
@@ -50,7 +49,7 @@
     // Cambia aquí el nombre del CSV si tu archivo tiene otro nombre:
     const [world, data] = await Promise.all([
       d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"),
-      d3.csv("refugiados_asilo.csv")   // <-- asegurar que este archivo existe en la carpeta
+      d3.csv("data/refugiados_asilo.csv")   // <-- asegurar que este archivo existe en la carpeta
     ]);
 
     // Preprocesado
