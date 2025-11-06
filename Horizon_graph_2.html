@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gráfico de Horizonte Interactivo - Temperaturas España</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f9f9f9;
+      margin: 40px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    svg {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: block;
+      margin: 30px auto;
+    }
+    label {
+      font-weight: 600;
+    }
+    select {
+      margin: 5px;
+      padding: 6px;
+      font-size: 14px;
+    }
+    .station-label {
+      font-size: 14px;
+      fill: #333;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <h1>Gráfico de Horizonte Interactivo - Temperaturas Medias (España)</h1>
+  <div style="text-align:center;">
+    <label for="station-select">Selecciona hasta 5 estaciones:</label><br>
+    <select id="station-select" multiple size="8" style="width:400px;"></select><br>
+    <button id="update">Actualizar gráfico</button>
+  </div>
+  <svg id="chart" width="950" height="600"></svg>
+
+  <script>
+    const svg = d3.select("#chart"),
+          width = +svg.attr("width"),
+          height = +svg.attr("height"),
+          margin = {top: 20, right: 40, bottom: 40, left: 100},
+          innerWidth = width - margin.left - margin.right,
+          innerHeight = height - margin.top - margin.bottom,
+          g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const meses = [
+      "enero","febrero","marzo","abril","mayo","junio",
+      "julio","agosto","septiembre","octubre","noviembre","diciembre"
+    ];
+    const nLayers = 4;
+
+    let dataGlobal = [];
+    let colIndicativo, colNombre;
+
+    d3.dsv(";", "data/TM_MES_2016.csv", d3.autoType).then(data => {
+      // Pasar todas las claves a minúsculas
+      data = data.map(d => {
+        const lower = {};
+        for (let k in d) lower[k.toLowerCase()] = d[k];
+        return lower;
+      });
+      dataGlobal = data;
+
+      colIndicativo = Object.keys(data[0]).find(k => k.includes("indicativo"));
+      colNombre = Object.keys(data[0]).find(k => k.includes("nombre") || k.includes("estacion"));
+
+      // Rellenar menú desplegable
+      const select = d3.select("#station-select");
+      select.selectAll("option")
+        .data(data)
+        .enter()
+        .append("option")
+        .attr("value", d => d[colIndicativo])
+        .text(d => `${d[colNombre] || "Sin nombre"} (${d[colIndicativo]})`);
+    });
+
+    document.getElementById("update").addEventListener("click", () => {
+      const seleccionadas = Array.from(document.getElementById("station-select").selectedOptions)
+                                 .map(o => o.value)
+                                 .slice(0, 5); // máximo 5 estaciones
+      actualizarGrafico(seleccionadas);
+    });
+
+    function actualizarGrafico(indicativos) {
+      g.selectAll("*").remove();
+
+      if (indicativos.length === 0) return;
+
+      const series = indicativos
+        .map(id => dataGlobal.find(d => d[colIndicativo] == id))
+        .filter(Boolean)
+        .map(station => ({
+          id: station[colIndicativo],
+          nombre: colNombre ? station[colNombre] : station[colIndicativo],
+          valores: meses.map(m => ({
+            mes: m,
+            valor: +station[m]
+          }))
+        }));
+
+      const yMax = d3.max(series.flatMap(s => s.valores.map(v => Math.abs(v.valor))));
+      const color = d3.scaleSequential(d3.interpolateRdBu).domain([yMax, -yMax]);
+      const band = yMax / nLayers;
+      const rowHeight = innerHeight / series.length;
+      const x = d3.scalePoint().domain(meses).range([0, innerWidth - 120]);
+
+      series.forEach((serie, i) => {
+        const yOffset = i * rowHeight + rowHeight / 2;
+
+        for (let j = 0; j < nLayers; j++) {
+          const offset = band * j;
+          g.append("path")
+            .datum(serie.valores.map(d => ({ mes: d.mes, valor: Math.max(0, d.valor - offset) })))
+            .attr("fill", color(offset))
+            .attr("transform", `translate(0,${yOffset})`)
+            .attr("d", d3.area()
+              .x(d => x(d.mes))
+              .y0(rowHeight / 2)
+              .y1(d => rowHeight / 2 - d.valor * 5))
+            .attr("opacity", 0.85);
+        }
+
+        g.append("text")
+          .attr("x", -20)
+          .attr("y", yOffset + 5)
+          .attr("text-anchor", "end")
+          .attr("class", "station-label")
+          .text(serie.nombre);
+      });
+
+      // Eje X común
+      g.append("g")
+        .attr("transform", `translate(0,${innerHeight - 10})`)
+        .call(d3.axisBottom(x));
+    }
+  </script>
+</body>
+</html>
