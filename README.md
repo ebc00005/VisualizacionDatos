@@ -16,7 +16,7 @@ Este proyecto contiene las tres visualizaciones desarrolladas por **Eloísa** pa
 4. **Horizon Graph (Gráfico de Horizonte)**  
    Representa series temporales de forma compacta, utilizando bandas de color para valores positivos y negativos.  
    [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/horizon_graph.html)
-   [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/horizon_graph_2.html)
+   [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/Horizon_graph_2.html)
 
 ---
 
