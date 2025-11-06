@@ -7,14 +7,16 @@ Este proyecto contiene las tres visualizaciones desarrolladas por **Eloísa** pa
 1. **Cartograma (Cartogram)**  
    Representa valores geográficos distorsionando las áreas según una variable cuantitativa.  
    [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/cartograma.html)
+   [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/cartograma_moderno_final.html.html)
 
-2. **Box Plot (Diagrama de Caja y Bigotes)**  
+3. **Box Plot (Diagrama de Caja y Bigotes)**  
    Muestra la distribución estadística y los valores atípicos de los datos de felicidad.  
    [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/boxplot_happiness.html)
 
-3. **Horizon Graph (Gráfico de Horizonte)**  
+4. **Horizon Graph (Gráfico de Horizonte)**  
    Representa series temporales de forma compacta, utilizando bandas de color para valores positivos y negativos.  
    [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/horizon_graph.html)
+   [Ver visualización](https://ebc00005.github.io/VisualizacionDatos/horizon_graph_2.html)
 
 ---
 
