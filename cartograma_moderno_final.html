@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cartograma (corregido) - Refugiados por país de asilo</title>
+
+  <!-- D3 v7 y TopoJSON client (IMPORTANTE: topojson debe cargarse) -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; 
+           background:#f7f9fb; margin:0; display:flex; flex-direction:column; align-items:center; padding:20px;}
+    h1 { margin:6px 0 8px; }
+    #chart { box-shadow:0 2px 10px rgba(0,0,0,0.08); background:white; border-radius:10px; padding:8px; }
+    svg { display:block; border-radius:6px; }
+    .tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      padding:6px 8px;
+      border-radius:6px;
+      font-size:13px;
+      opacity:0;
+      transition: opacity 120ms;
+    }
+  </style>
+</head>
+<body>
+  <h1>Cartograma aproximado de refugiados (países de asilo)</h1>
+  <p style="max-width:760px; text-align:center; margin:0 0 12px 0;">
+    Los países se deforman proporcionalmente al número de refugiados que acogen.   
+  </p>
+
+  <div id="chart">
+    <svg id="svgmap" width="960" height="600" aria-label="Cartograma"></svg>
+  </div>
+  <div class="tooltip" id="tooltip"></div>
+
+<script>
+(async () => {
+  const svg = d3.select("#svgmap");
+  const width = +svg.attr("width"), height = +svg.attr("height");
+  const tooltip = d3.select("#tooltip");
+
+  try {
+    // Cambia aquí el nombre del CSV si tu archivo tiene otro nombre:
+    const [world, data] = await Promise.all([
+      d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"),
+      d3.csv("refugiados_asilo.csv")   // <-- asegurar que este archivo existe en la carpeta
+    ]);
+
+    // Preprocesado
+    const countries = topojson.feature(world, world.objects.countries).features;
+    // Crear mapa país -> valor (asegúrate nombres coinciden exactamente)
+    const refugeesMap = new Map(data.map(d => [d.asylum_country.trim(), +d.refugees]));
+
+    // Proyección y path
+    const projection = d3.geoNaturalEarth1().fitSize([width, height], {type: "Sphere"});
+    const path = d3.geoPath(projection);
+
+    // Escalas
+    const maxRef = d3.max(data, d => +d.refugees) || 1;
+    const color = d3.scaleSequential()
+                    .domain([1, maxRef])
+                    .interpolator(d3.interpolateYlGnBu);
+
+    const deformScale = d3.scaleSqrt()
+                    .domain([0, maxRef])
+                    .range([0.8, 2.2]); // controla cuánto se deforma
+
+    // Dibujo de países: aplicamos deformación robusta (Polygon / MultiPolygon)
+    svg.selectAll("path.country")
+      .data(countries)
+      .join("path")
+      .attr("class", "country")
+      .attr("d", d => {
+        const val = refugeesMap.get(d.properties.name) || 0;
+        const centroid = path.centroid(d);
+        // si centroid no es válido (país muy pequeño), evitamos errores
+        if (!Array.isArray(centroid) || isNaN(centroid[0])) return null;
+        const deform = deformScale(val);
+
+        // Obtener lista de rings coherentes tanto para Polygon como para MultiPolygon
+        let rings = [];
+        if (d.geometry.type === "Polygon") {
+          rings = d.geometry.coordinates;
+        } else if (d.geometry.type === "MultiPolygon") {
+          rings = d.geometry.coordinates.flat();
+        } else {
+          return null;
+        }
+
+        const projectedPoly = {
+          type: "Polygon",
+          coordinates: rings.map(ring => ring.map(([lon, lat]) => {
+            const [x, y] = projection([lon, lat]);
+            const [cx, cy] = centroid;
+            // desplacemos radialmente respecto al centroide
+            const nx = cx + (x - cx) * deform / 1.5;
+            const ny = cy + (y - cy) * deform / 1.5;
+            // invertimos a lon/lat para construir geometría proyectada
+            const inv = projection.invert([nx, ny]);
+            // si invert da null, devolvemos el punto original (seguridad)
+            return inv ? inv : [lon, lat];
+          }))
+        };
+
+        try {
+          return path(projectedPoly);
+        } catch (e) {
+          return null;
+        }
+      })
+      .attr("fill", d => {
+        const v = refugeesMap.get(d.properties.name) || 0;
+        return v > 0 ? color(Math.max(1, v)) : "#eee";
+      })
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 0.5)
+      .on("mousemove", (event, d) => {
+         const name = d.properties.name;
+         const val = refugeesMap.get(name) || 0;
+         tooltip.style("opacity", 1)
+                .style("left", (event.pageX + 12) + "px")
+                .style("top", (event.pageY + 8) + "px")
+                .html(`<strong>${name}</strong><br/>${val.toLocaleString()} refugiados`);
+      })
+      .on("mouseleave", () => tooltip.style("opacity", 0));
+
+    // === Leyenda de color (gradiente YlGnBu) ===
+    const legendWidth = 320, legendHeight = 14;
+    const legendX = width/2 - legendWidth/2;
+    const legendY = height - 48;
+
+    // Definir gradiente
+    const defs = svg.append("defs");
+    const grad = defs.append("linearGradient").attr("id", "grad-ylgnbu");
+    grad.selectAll("stop")
+      .data(d3.range(0,1.0001,0.1))
+      .join("stop")
+      .attr("offset", d => d)
+      .attr("stop-color", d => d3.interpolateYlGnBu(d));
+
+    // Dibujar rectángulo del gradiente
+    const legend = svg.append("g").attr("transform", `translate(${legendX},${legendY})`);
+    legend.append("rect")
+      .attr("width", legendWidth)
+      .attr("height", legendHeight)
+      .attr("rx", 4).attr("ry", 4)
+      .style("fill", "url(#grad-ylgnbu)")
+      .style("stroke", "#ccc").style("stroke-width", 0.6);
+
+    // Escala logarítmica y eje
+    const legendScale = d3.scaleLog()
+      .domain([1, maxRef])
+      .range([0, legendWidth]);
+
+    const legendAxis = d3.axisBottom(legendScale)
+      .ticks(5, "~s")
+      .tickSize(legendHeight + 6);
+
+    legend.append("g")
+      .attr("transform", `translate(0, ${legendHeight + 2})`)
+      .call(legendAxis)
+      .select(".domain").remove();
+
+    // Etiqueta
+    svg.append("text")
+      .attr("x", width/2)
+      .attr("y", legendY - 10)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#333")
+      .attr("font-weight", 600)
+      .text("Número de refugiados (escala logarítmica)");
+
+  } catch (err) {
+    console.error("Error al cargar los datos:", err);
+    alert("Error cargando datos en consola. Revisa la consola del navegador.");
+  }
+})();
+</script>
+</body>
+</html>
